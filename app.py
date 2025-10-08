@@ -119,12 +119,30 @@ with tab_scan:
                 with st.spinner("Читаем структуру БД…"):
                     try:
                         r = _post_json("fetch_schema", {"db_url": db_url, "schema": schema_name})
+
+                        # === Friendly handling for catalog-only gate ===
+                        try:
+                            data = r.json()
+                        except Exception:
+                            data = {}
+
+                        if r.status_code == 403 and isinstance(data, dict) and data.get("code") == "ROLE_NOT_CATALOG_ONLY":
+                            st.error(
+                                "🔒 Подключённый пользователь **имеет доступ к данным**.\n\n"
+                                "Для безопасности генератор разрешает только **catalog-only** роли (без `SELECT` на пользовательские таблицы).\n\n"
+                                "Что можно сделать:\n"
+                                "• использовать в своей БД отдельного пользователя без прав `SELECT`;\n"
+                                "• или переключиться на режим **Offline JSON Schema** (загрузка схемы без подключения к БД — скоро добавим).\n",
+                                icon="lock",
+                            )
+                            st.stop()
+                        # === /Friendly handling ===
+
                         if r.status_code in (401,403):
                             _err_box("Нет доступа к функции (401/403).", r.text[:2000])
                         elif r.status_code >= 500:
                             _err_box("Серверная ошибка функций (5xx).", r.text[:2000])
                         else:
-                            data = r.json()
                             if not isinstance(data, dict) or "tables" not in data:
                                 _err_box("Неожиданный ответ от /fetch_schema.", json.dumps(data, ensure_ascii=False, indent=2))
                             else:
