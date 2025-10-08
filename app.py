@@ -135,7 +135,8 @@ with tab_scan:
                             "• или переключиться на режим **Offline JSON Schema** (загрузка схемы без подключения к БД — скоро добавим).\n"
                              )
 
-                            st.stop()
+                            st.experimental_rerun()
+
                         # === /Friendly handling ===
 
                         if r.status_code in (401,403):
