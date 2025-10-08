@@ -135,7 +135,8 @@ with tab_scan:
                             "• или переключиться на режим **Offline JSON Schema** (загрузка схемы без подключения к БД — скоро добавим).\n"
                              )
 
-                            st.experimental_rerun()
+                            st.rerun()
+
 
                         # === /Friendly handling ===
 
