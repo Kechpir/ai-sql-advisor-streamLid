@@ -391,12 +391,16 @@ if OPENAI_IN_PRICE == 0 and OPENAI_OUT_PRICE == 0:
 # ——————— TAB 2: Сохранённые базы ———————
 with tab_saved:
     st.caption("Список ранее сохранённых «сканов» схем (Storage bucket: schemas).")
-    if st.button("🔄 Обновить список"):
-        st.session_state.pop("schemas_list", None)
 
+    c_refresh, _ = st.columns([1, 3])
+    with c_refresh:
+        if st.button("🔄 Обновить список", use_container_width=True):
+            st.session_state.pop("schemas_list", None)
+
+    # Подгружаем список схем
     if "schemas_list" not in st.session_state:
         try:
-            rr = _get("schemas")
+            rr = _schemas_get()
             if rr.status_code >= 400:
                 _err_box("Не удалось загрузить список схем", rr.text[:2000])
             else:
@@ -404,11 +408,63 @@ with tab_saved:
         except Exception as e:
             _err_box("Ошибка при загрузке списка", str(e))
 
-    items = st.session_state.get("schemas_list", [])
-    names = [it.get("name") for it in items] if items else []
-    selected = st.selectbox("Выбери схему", options=["—"] + names, index=0)
+    items = st.session_state.get("schemas_list", []) or []
+    names = ["—"] + [it.get("name") for it in items]
 
+    selected = st.selectbox("Выбери схему", options=names, index=0)
     if selected and selected != "—":
-        st.write(f"Выбрана схема: **{selected}**")
-        st.caption("Сейчас держим только список имён. Для подгрузки JSON можно сделать /schemas/get (при необходимости).")
-        st.info("Пока используем схему из текущей сессии (вкладка «Сканировать/Генерировать»). Чтобы обновить, перезагрузи схему и сохрани заново под тем же именем — в Storage произойдёт upsert.")
+        st.text_input("Имя схемы", value=selected, disabled=True)
+
+        colA, colB, colC = st.columns([1, 1, 1])
+        can_diff = "schema_json" in st.session_state
+        can_update = "schema_json" in st.session_state
+
+        do_diff = colA.button("⚙️ Diff с текущей", use_container_width=True, disabled=not can_diff)
+        do_update = colB.button("♻️ Обновить сохранённую", use_container_width=True, disabled=not can_update)
+        do_delete = colC.button("🗑 Удалить", use_container_width=True)
+
+        if do_diff:
+            try:
+                payload = {"op": "diff", "name": selected, "new_schema": st.session_state["schema_json"]}
+                r = _schemas_post(payload)
+                data = r.json()
+                if r.status_code >= 400:
+                    _err_box("Diff не выполнился", json.dumps(data, ensure_ascii=False, indent=2))
+                else:
+                    diff = data.get("diff") or {}
+                    with st.expander("Результат сравнения (diff)", expanded=True):
+                        st.code(json.dumps(diff, ensure_ascii=False, indent=2), language="json")
+                    st.toast("Diff готов.", icon="✅")
+            except Exception as e:
+                _err_box("Ошибка diff", str(e))
+
+        if do_update:
+            try:
+                payload = {"op": "update", "name": selected, "new_schema": st.session_state["schema_json"]}
+                r = _schemas_post(payload)
+                data = r.json()
+                if r.status_code >= 400:
+                    _err_box("Не удалось обновить схему", json.dumps(data, ensure_ascii=False, indent=2))
+                else:
+                    if data.get("updated"):
+                        st.success("Схема обновлена.")
+                    else:
+                        st.info(data.get("reason", "Изменений не обнаружено."))
+                    st.session_state.pop("schemas_list", None)
+            except Exception as e:
+                _err_box("Ошибка обновления", str(e))
+
+        if do_delete:
+            try:
+                r = _schemas_post({"op": "delete", "name": selected})
+                data = r.json()
+                if r.status_code >= 400:
+                    _err_box("Не удалось удалить схему", json.dumps(data, ensure_ascii=False, indent=2))
+                else:
+                    st.success(f"Удалено: {selected}")
+                    st.session_state.pop("schemas_list", None)
+            except Exception as e:
+                _err_box("Ошибка удаления", str(e))
+
+    st.markdown("---")
+    st.caption("Чтобы обновить схему, просто загрузите новую во вкладке «Сканировать/Генерировать» и сохраните под тем же именем — произойдёт upsert.")
