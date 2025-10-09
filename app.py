@@ -128,42 +128,49 @@ with tab_scan:
                         except Exception:
                             data = {}
 
-                        # === Friendly handling for catalog-only gate ===
-                        if r.status_code == 403 and isinstance(data, dict) and data.get("code") == "ROLE_NOT_CATALOG_ONLY":
-                            st.session_state["catalog_gate"] = True
-                            st.rerun()
-                        # === /Friendly handling ===
+                        # внутри: with st.spinner("Читаем структуру БД…"):
+try:
+    r = _post_json("fetch_schema", {"db_url": db_url, "schema": schema_name})
 
-                        if r.status_code in (401,403):
-                            _err_box("Нет доступа к функции (401/403).", r.text[:2000])
-                        elif r.status_code >= 500:
-                            _err_box("Серверная ошибка функций (5xx).", r.text[:2000])
-                        else:
-                            data = r.json()
-                            if not isinstance(data, dict) or "tables" not in data:
-                                _err_box("Неожиданный ответ от /fetch_schema.", json.dumps(data, ensure_ascii=False, indent=2))
-                            else:
-                                st.session_state["schema_json"] = data
-                                st.session_state["dialect"] = data.get("dialect", dialect) or dialect
-                                st.success("Схема успешно загружена.")
-                    except Exception as e:
-                        _err_box("Ошибка при обращении к /fetch_schema.", str(e))
+    # заранее пробуем распарсить JSON (может понадобиться ниже)
+    try:
+        data = r.json()
+    except Exception:
+        data = {}
 
-    # показываем карточку, если сработал catalog_gate
-    if st.session_state.get("catalog_gate"):
-        st.error(
-            "🔒 Подключённый пользователь **имеет доступ к данным**.\n\n"
-            "Для безопасности генератор разрешает только **catalog-only** роли (без `SELECT` на пользовательские таблицы).\n\n"
-            "Что можно сделать:\n"
-            "• использовать в своей БД отдельного пользователя без прав `SELECT`;\n"
-            "• или переключиться на режим **Offline JSON Schema** (загрузка схемы без подключения к БД — скоро добавим).\n"
-        )
-        st.session_state["catalog_gate"] = False
+    # === Friendly handling for catalog-only gate ===
+    if r.status_code == 403 and isinstance(data, dict) and data.get("code") == "ROLE_NOT_CATALOG_ONLY":
+        st.session_state["catalog_gate"] = True
+        st.rerun()
+    # === /Friendly handling ===
 
-    # остальной код UI без изменений
-    schema_json = st.session_state.get("schema_json")
-    if schema_json:
-        count = schema_json.get("countTables") or (len(schema_json.get("tables", {})) if isinstance(schema_json.get("tables"), dict) else None)
-        _badge(f"Схема загружена • таблиц: {count if count is not None else '?'}")
-        with st.expander("Показать JSON-схему"):
-            st.code(json.dumps(schema_json, ensure_ascii=False, indent=2), language="json")
+    if r.status_code in (401, 403):
+        _err_box("Нет доступа к функции (401/403).", r.text[:2000])
+    elif r.status_code >= 500:
+        _err_box("Серверная ошибка функций (5xx).", r.text[:2000])
+    else:
+        if not isinstance(data, dict) or "tables" not in data:
+            _err_box("Неожиданный ответ от /fetch_schema.", json.dumps(data, ensure_ascii=False, indent=2))
+        else:
+            st.session_state["schema_json"] = data
+            st.session_state["dialect"] = data.get("dialect", dialect) or dialect
+            st.success("Схема успешно загружена.")
+except Exception as e:
+    _err_box("Ошибка при обращении к /fetch_schema.", str(e))
+
+    # показываем карточку, если сработал catalog_gate (вне спиннера)
+if st.session_state.get("catalog_gate"):
+    st.error(
+        "🔒 Подключённый пользователь **имеет доступ к данным**.\n\n"
+        "Для безопасности генератор разрешает только **catalog-only** роли (без `SELECT` на пользовательские таблицы).\n\n"
+        "Что можно сделать:\n"
+        "• использовать в своей БД отдельного пользователя без прав `SELECT`;\n"
+        "• или переключиться на режим **Offline JSON Schema** (загрузка схемы без подключения к БД — скоро добавим).\n"
+    )
+    st.session_state["catalog_gate"] = False
+
+
+    
+
+    
+
