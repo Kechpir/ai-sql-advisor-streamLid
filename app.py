@@ -281,18 +281,76 @@ with tab_scan:
         st.code(final_sql, language="sql")
         copy_to_clipboard("📋 Скопировать SQL", final_sql, key=f"copybtn-{int(time.time())}")
 
-    # блок стоимости/usage
-    usage = st.session_state.get("usage") or {}
-    if usage:
-        pt = usage.get("prompt_tokens", 0) or 0
-        ct = usage.get("completion_tokens", 0) or 0
-        tt = usage.get("total_tokens", pt + ct)
-        cost = 0.0
-        if OPENAI_IN_PRICE > 0 or OPENAI_OUT_PRICE > 0:
-            cost = (pt/1000.0)*OPENAI_IN_PRICE + (ct/1000.0)*OPENAI_OUT_PRICE
-        st.info(f"Токены: prompt={pt}, completion={ct}, total={tt} • Стоимость: ${cost:.2f}")
-    elif OPENAI_IN_PRICE == 0 and OPENAI_OUT_PRICE == 0:
-        st.caption("ℹ️ Укажи OPENAI_IN_PRICE и OPENAI_OUT_PRICE в Secrets, чтобы видеть стоимость в $.")
+    # ——————— БЛОК СТОИМОСТИ / USAGE (персистентный счётчик в браузере) ———————
+usage = st.session_state.get("usage") or {}
+
+# кнопка сброса "одометра"
+reset_odometer = st.button("🧮 Обнулить счётчик токенов", use_container_width=True)
+
+# если нажали — чистим локальный счётчик в браузере
+if reset_odometer:
+    st.components.v1.html("""
+        <script>
+          localStorage.removeItem('ai_sql_total_usd');
+          localStorage.removeItem('ai_sql_total_tokens');
+        </script>
+    """, height=0)
+    st.toast("Счётчик обнулён.", icon="✅")
+
+# показываем разовый расход за текущий запрос (если есть)
+if (usage.get("prompt_tokens") is not None) or (usage.get("completion_tokens") is not None):
+    pt = int(usage.get("prompt_tokens") or 0)
+    ct = int(usage.get("completion_tokens") or 0)
+    total_now = int(usage.get("total_tokens") or (pt + ct))
+    # стоимость за этот запрос
+    cost_now = 0.0
+    if OPENAI_IN_PRICE > 0 or OPENAI_OUT_PRICE > 0:
+        cost_now = (pt/1000.0)*OPENAI_IN_PRICE + (ct/1000.0)*OPENAI_OUT_PRICE
+
+    # отображаем разовый расход
+    st.info(f"Текущий запрос → токены: prompt={pt}, completion={ct}, total={total_now} • Стоимость: ${cost_now:.2f}")
+
+    # прибавляем к "одометру" в браузере
+    st.components.v1.html(f"""
+        <script>
+          const deltaUsd = {cost_now:.6f};
+          const deltaTok = {total_now};
+
+          const K_USD = 'ai_sql_total_usd';
+          const K_TOK = 'ai_sql_total_tokens';
+
+          let usd = parseFloat(localStorage.getItem(K_USD) || '0');
+          let tok = parseInt(localStorage.getItem(K_TOK) || '0');
+
+          usd = (usd + deltaUsd);
+          tok = (tok + deltaTok);
+
+          localStorage.setItem(K_USD, usd.toFixed(6));
+          localStorage.setItem(K_TOK, String(tok));
+        </script>
+    """, height=0)
+
+# рисуем "одометр" (сумма за всё время в этом браузере)
+st.components.v1.html("""
+  <div id="ai-sql-odometer" style="margin-top:6px;padding:10px;border:1px solid #374151;border-radius:10px;">
+    <b>Всего за всё время (на этом устройстве):</b>
+    <div id="ai-sql-odometer-line" style="margin-top:4px;">читаем…</div>
+  </div>
+  <script>
+    const usd = parseFloat(localStorage.getItem('ai_sql_total_usd') || '0');
+    const tok = parseInt(localStorage.getItem('ai_sql_total_tokens') || '0');
+    const line = document.getElementById('ai-sql-odometer-line');
+    if (line) {{
+      line.textContent = `${{tok}} токенов • $${{usd.toFixed(2)}}`;
+    }}
+  </script>
+""", height=70)
+
+# если цены не заданы — подсказываем
+if OPENAI_IN_PRICE == 0 and OPENAI_OUT_PRICE == 0:
+    st.caption("ℹ️ Укажи OPENAI_IN_PRICE и OPENAI_OUT_PRICE в Secrets, чтобы видеть стоимость в $.")
+# ——————— /БЛОК СТОИМОСТИ ———————
+
 
     # показ загруженной схемы + сохранение
     if schema_json:
