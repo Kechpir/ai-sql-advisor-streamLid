@@ -191,33 +191,51 @@ reset_odometer = st.button("🧮 Обнулить счётчик токенов"
 if reset_odometer:
     st.components.v1.html("<script>localStorage.removeItem('ai_sql_total_usd');localStorage.removeItem('ai_sql_total_tokens');</script>", height=0)
     st.toast("Счётчик обнулён.", icon="✅")
+
 if (usage.get("prompt_tokens") or usage.get("completion_tokens")):
     pt = int(usage.get("prompt_tokens") or 0)
     ct = int(usage.get("completion_tokens") or 0)
     total_now = pt + ct
-    cost_now = (pt/1000.0)*OPENAI_IN_PRICE + (ct/1000.0)*OPENAI_OUT_PRICE
+    cost_now = (pt / 1000.0) * OPENAI_IN_PRICE + (ct / 1000.0) * OPENAI_OUT_PRICE
+
     st.info(f"Текущий запрос → {total_now} токенов • ${cost_now:.2f}")
+
     st.components.v1.html(f"""
         <script>
-        let u=parseFloat(localStorage.getItem('ai_sql_total_usd')||'0');
-        let t=parseInt(localStorage.getItem('ai_sql_total_tokens')||'0');
-        u+= {cost_now:.6f}; t+= {total_now};
-        localStorage.setItem('ai_sql_total_usd',u.toFixed(6));
-        localStorage.setItem('ai_sql_total_tokens',t);
+        let u = parseFloat(localStorage.getItem('ai_sql_total_usd') || '0');
+        let t = parseInt(localStorage.getItem('ai_sql_total_tokens') || '0');
+        u += {cost_now:.6f}; t += {total_now};
+        localStorage.setItem('ai_sql_total_usd', u.toFixed(6));
+        localStorage.setItem('ai_sql_total_tokens', t);
         </script>
     """, height=0)
+
+# --- UI оформление счётчика ---
 st.components.v1.html("""
-<div style='margin-top:6px;padding:8px;border:1px solid #374151;border-radius:10px;'>
-<b>Всего за всё время:</b>
-<div id='odo_line'>читаем…</div>
+<div style="
+    margin-top: 10px;
+    padding: 10px 20px;
+    border: 1px solid #4B8BFF;
+    border-radius: 12px;
+    background-color: #1E1E1E;
+    box-shadow: 0 0 12px rgba(75, 139, 255, 0.35);
+    color: #E0E6FF;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    text-align: left;
+">
+  <b style="color:#A0BFFF;">Всего за всё время:</b><br>
+  <span id="odo_line" style="color:#8AB4FF;">читаем…</span>
 </div>
+
 <script>
-const usd=parseFloat(localStorage.getItem('ai_sql_total_usd')||'0');
-const tok=parseInt(localStorage.getItem('ai_sql_total_tokens')||'0');
-document.getElementById('odo_line').innerText=`${tok} токенов • $${usd.toFixed(2)}`;
+const usd = parseFloat(localStorage.getItem('ai_sql_total_usd') || '0');
+const tok = parseInt(localStorage.getItem('ai_sql_total_tokens') || '0');
+document.getElementById('odo_line').innerHTML = `${tok.toLocaleString('ru-RU')} токенов • <span style="color:#6BFFA6;">$${usd.toFixed(2)}</span>`;
 </script>
-""", height=65)
+""", height=70)
 # === /ODOMETER ===
+
 
 
 # ========== TAB 2: Saved Schemas ==========
