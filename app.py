@@ -20,6 +20,16 @@ HEADERS = {
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}" if SUPABASE_ANON_KEY else "",
 }
 
+# — Работа с функцией /schemas (CRUD сохранённых схем)
+SCHEMAS_FUNC = f"{SUPABASE_URL}/functions/v1/schemas"
+
+def _schemas_get():
+    return requests.get(SCHEMAS_FUNC, headers=HEADERS, timeout=40)
+
+def _schemas_post(payload: dict):
+    return requests.post(SCHEMAS_FUNC, headers=HEADERS, data=json.dumps(payload), timeout=60)
+
+
 # ==============================
 # Helpers
 # ==============================
