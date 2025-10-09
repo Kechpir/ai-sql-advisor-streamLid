@@ -397,7 +397,7 @@ with tab_saved:
         if st.button("🔄 Обновить список", use_container_width=True):
             st.session_state.pop("schemas_list", None)
 
-    # Подгружаем список схем
+    # загрузка списка схем из /schemas
     if "schemas_list" not in st.session_state:
         try:
             rr = _schemas_get()
@@ -412,16 +412,25 @@ with tab_saved:
     names = ["—"] + [it.get("name") for it in items]
 
     selected = st.selectbox("Выбери схему", options=names, index=0)
+
     if selected and selected != "—":
         st.text_input("Имя схемы", value=selected, disabled=True)
 
         colA, colB, colC = st.columns([1, 1, 1])
-        can_diff = "schema_json" in st.session_state
-        can_update = "schema_json" in st.session_state
 
-        do_diff = colA.button("⚙️ Diff с текущей", use_container_width=True, disabled=not can_diff)
-        do_update = colB.button("♻️ Обновить сохранённую", use_container_width=True, disabled=not can_update)
-        do_delete = colC.button("🗑 Удалить", use_container_width=True)
+        # ⚙️ DIFF (сравнить сохранённую с текущей в сессии)
+        with colA:
+            can_diff = "schema_json" in st.session_state
+            do_diff = st.button("⚙️ Diff с текущей", use_container_width=True, disabled=not can_diff)
+
+        # ♻️ UPDATE (перезаписать, если изменилось)
+        with colB:
+            can_update = "schema_json" in st.session_state
+            do_update = st.button("♻️ Обновить сохранённую", use_container_width=True, disabled=not can_update)
+
+        # 🗑 DELETE
+        with colC:
+            do_delete = st.button("🗑 Удалить", use_container_width=True)
 
         if do_diff:
             try:
@@ -450,7 +459,7 @@ with tab_saved:
                         st.success("Схема обновлена.")
                     else:
                         st.info(data.get("reason", "Изменений не обнаружено."))
-                    st.session_state.pop("schemas_list", None)
+                    st.session_state.pop("schemas_list", None)  # освежить список
             except Exception as e:
                 _err_box("Ошибка обновления", str(e))
 
@@ -462,9 +471,10 @@ with tab_saved:
                     _err_box("Не удалось удалить схему", json.dumps(data, ensure_ascii=False, indent=2))
                 else:
                     st.success(f"Удалено: {selected}")
-                    st.session_state.pop("schemas_list", None)
+                    st.session_state.pop("schemas_list", None)  # освежить список
             except Exception as e:
                 _err_box("Ошибка удаления", str(e))
 
     st.markdown("---")
-    st.caption("Чтобы обновить схему, просто загрузите новую во вкладке «Сканировать/Генерировать» и сохраните под тем же именем — произойдёт upsert.")
+    st.caption("Чтобы добавить новую версию: загрузите схему во вкладке «Сканировать/Генерировать», затем сохраните под тем же именем — произойдёт upsert.")
+# ——————— /TAB 2 ———————
