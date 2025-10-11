@@ -19,7 +19,7 @@ HEADERS = {
     "Authorization": f"Bearer {SUPABASE_ANON_KEY}" if SUPABASE_ANON_KEY else "",
 }
 
-# — Работа с функцией /schemas (CRUD сохранённых схем)
+# Работа с функцией /schemas (CRUD сохранённых схем)
 SCHEMAS_FUNC = f"{SUPABASE_URL}/functions/v1/schemas"
 
 def _schemas_get():
@@ -237,7 +237,6 @@ document.getElementById('odo_line').innerHTML = `${tok.toLocaleString('ru-RU')} 
 # === /ODOMETER ===
 
 
-
 # ========== TAB 2: Saved Schemas ==========
 with tab_saved:
     st.caption("💾 Список сохранённых схем (Storage bucket: schemas).")
@@ -273,39 +272,6 @@ with tab_saved:
 
     # --- Блок управления схемами (Diff / Обновить / Удалить) ---
     if "schema_json" not in st.session_state:
-        st.info("ℹ️ Чтобы использовать Diff/Обновить, сначала загрузите схему во вкладке «Сканировать».")
-    elif selected and selected != "—":
-        col1, col2, col3 = st.columns(3)
-        do_diff = col1.button("⚙️ Diff с текущей", use_container_width=True)
-        do_update = col2.button("♻️ Обновить", use_container_width=True)
-        do_delete = col3.button("🗑 Удалить", use_container_width=True)
-
-        if do_diff:
-            r = _schemas_post({"op": "diff", "name": selected, "new_schema": st.session_state["schema_json"]})
-            data = r.json()
-            if r.status_code >= 400:
-                _err_box("Ошибка diff", json.dumps(data, ensure_ascii=False, indent=2))
-            else:
-                st.code(json.dumps(data.get("diff"), ensure_ascii=False, indent=2), language="json")
-
-        if do_update:
-            r = _schemas_post({"op": "update", "name": selected, "new_schema": st.session_state["schema_json"]})
-            data = r.json()
-            if r.status_code >= 400:
-                _err_box("Ошибка обновления", json.dumps(data, ensure_ascii=False, indent=2))
-            else:
-                st.success(data.get("reason", "Обновлено."))
-
-        if do_delete:
-            r = _schemas_post({"op": "delete", "name": selected})
-            if r.status_code < 400:
-                st.success(f"Удалено: {selected}")
-                st.session_state.pop("schemas_list", None)
-            else:
-                _err_box("Ошибка удаления", r.text)
-
-
-  if "schema_json" not in st.session_state:
         st.info("ℹ️ Чтобы использовать Diff/Обновить, сначала загрузите схему во вкладке «Сканировать».")
     elif selected and selected != "—":
         col1, col2, col3 = st.columns(3)
