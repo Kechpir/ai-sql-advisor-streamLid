@@ -241,6 +241,7 @@ document.getElementById('odo_line').innerHTML = `${tok.toLocaleString('ru-RU')} 
 # ========== TAB 2: Saved Schemas ==========
 with tab_saved:
     st.caption("💾 Список сохранённых схем (Storage bucket: schemas).")
+
     if st.button("🔄 Обновить список", use_container_width=True):
         st.session_state.pop("schemas_list", None)
 
@@ -255,23 +256,53 @@ with tab_saved:
     names = ["—"] + [x.get("name") for x in items]
     selected = st.selectbox("Выбери схему", options=names, index=0)
 
+    if selected and selected != "—":
+        do_load = st.button("⬇ Подгрузить в сессию", use_container_width=True)
+        if do_load:
+            try:
+                r = _post_json("schemas", {"op": "get", "name": selected})
+                data = r.json()
+                if r.status_code >= 400:
+                    _err_box("Не удалось подгрузить схему", json.dumps(data, ensure_ascii=False, indent=2))
+                else:
+                    st.session_state["schema_json"] = data.get("schema")
+                    count = len((st.session_state["schema_json"] or {}).get("tables", {}))
+                    st.success(f"Схема «{selected}» подгружена • таблиц: {count}")
+            except Exception as e:
+                _err_box("Ошибка подгрузки", str(e))
 
-                    if selected and selected != "—":
-                        do_load = st.button("⬇ Подгрузить в сессию", use_container_width=True)
-                        if do_load:
-                            try:
-                                r = _post_json("schemas", {"op": "get", "name": selected})
-                                data = r.json()
-                                if r.status_code >= 400:
-                                    _err_box("Не удалось подгрузить схему", json.dumps(data, ensure_ascii=False, indent=2))
-                                else:
-                                    st.session_state["schema_json"] = data.get("schema")
-                                    count = len((st.session_state["schema_json"] or {}).get("tables", {}))
-                                    st.success(f"Схема «{selected}» подгружена • таблиц: {count}")
-                            except Exception as e:
-                                _err_box("Ошибка подгрузки", str(e))
-    
+    # --- Блок управления схемами (Diff / Обновить / Удалить) ---
+    if "schema_json" not in st.session_state:
+        st.info("ℹ️ Чтобы использовать Diff/Обновить, сначала загрузите схему во вкладке «Сканировать».")
+    elif selected and selected != "—":
+        col1, col2, col3 = st.columns(3)
+        do_diff = col1.button("⚙️ Diff с текущей", use_container_width=True)
+        do_update = col2.button("♻️ Обновить", use_container_width=True)
+        do_delete = col3.button("🗑 Удалить", use_container_width=True)
 
+        if do_diff:
+            r = _schemas_post({"op": "diff", "name": selected, "new_schema": st.session_state["schema_json"]})
+            data = r.json()
+            if r.status_code >= 400:
+                _err_box("Ошибка diff", json.dumps(data, ensure_ascii=False, indent=2))
+            else:
+                st.code(json.dumps(data.get("diff"), ensure_ascii=False, indent=2), language="json")
+
+        if do_update:
+            r = _schemas_post({"op": "update", "name": selected, "new_schema": st.session_state["schema_json"]})
+            data = r.json()
+            if r.status_code >= 400:
+                _err_box("Ошибка обновления", json.dumps(data, ensure_ascii=False, indent=2))
+            else:
+                st.success(data.get("reason", "Обновлено."))
+
+        if do_delete:
+            r = _schemas_post({"op": "delete", "name": selected})
+            if r.status_code < 400:
+                st.success(f"Удалено: {selected}")
+                st.session_state.pop("schemas_list", None)
+            else:
+                _err_box("Ошибка удаления", r.text)
 
 
   if "schema_json" not in st.session_state:
