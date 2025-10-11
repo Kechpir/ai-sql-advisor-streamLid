@@ -255,9 +255,9 @@ with tab_saved:
     names = ["—"] + [x.get("name") for x in items]
     selected = st.selectbox("Выбери схему", options=names, index=0)
 
-    if selected and selected != "—":
-    do_load = st.button("⬇ Подгрузить в сессию", use_container_width=True)
-    if do_load:
+        if selected and selected != "—":
+        do_load = st.button("⬇ Подгрузить в сессию", use_container_width=True)
+        if do_load:
         try:
             r = _post_json("schemas", {"op": "get", "name": selected})
             data = r.json()
@@ -271,7 +271,8 @@ with tab_saved:
             _err_box("Ошибка подгрузки", str(e))
 
 
-    if "schema_json" not in st.session_state:
+
+  if "schema_json" not in st.session_state:
         st.info("ℹ️ Чтобы использовать Diff/Обновить, сначала загрузите схему во вкладке «Сканировать».")
     elif selected and selected != "—":
         col1, col2, col3 = st.columns(3)
